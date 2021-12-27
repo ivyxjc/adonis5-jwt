@@ -24,6 +24,7 @@ import {
     JWTLogoutOptions,
 } from "@ioc:Adonis/Addons/Jwt";
 import { JwtProviderToken } from "../ProviderToken/JwtProviderToken";
+import ErrorCode from "../constant";
 
 /**
  * JWT token represents a persisted token generated for a given user.
@@ -247,7 +248,7 @@ export class JWTGuard extends BaseGuard<"jwt"> implements JWTGuardContract<any, 
         }
 
         if (!providerToken) {
-            throw new JwtAuthenticationException("Invalid refresh token");
+            throw new JwtAuthenticationException("Invalid refresh token", 401, ErrorCode.auth.E_REFRESH_TOKEN_INVALID);
         }
 
         const providerUser = await this.findById(providerToken.userId);
@@ -477,7 +478,11 @@ export class JWTGuard extends BaseGuard<"jwt"> implements JWTGuardContract<any, 
          */
         const token = this.ctx.request.header("Authorization");
         if (!token) {
-            throw new JwtAuthenticationException("No Authorization header passed");
+            throw new JwtAuthenticationException(
+                "No Authorization header passed",
+                401,
+                ErrorCode.auth.E_INVALID_AUTHORIZATION_HEADER
+            );
         }
 
         /**
@@ -486,7 +491,11 @@ export class JWTGuard extends BaseGuard<"jwt"> implements JWTGuardContract<any, 
          */
         const [type, value] = token.split(" ");
         if (!type || type.toLowerCase() !== "bearer" || !value) {
-            throw new JwtAuthenticationException("Invalid Authorization header value: " + token);
+            throw new JwtAuthenticationException(
+                "Invalid Authorization header value: " + token,
+                401,
+                ErrorCode.auth.E_INVALID_AUTHORIZATION_HEADER
+            );
         }
 
         return value;
@@ -498,24 +507,34 @@ export class JWTGuard extends BaseGuard<"jwt"> implements JWTGuardContract<any, 
     private async verifyToken(token: string): Promise<JWTCustomPayload> {
         const secret = this.generateKey(this.config.privateKey);
 
-        const { payload } = await jwtVerify(token, secret, {
-            issuer: this.config.issuer,
-            audience: this.config.audience,
-        });
+        let jwtPayload;
+        try {
+            const { payload } = await jwtVerify(token, secret, {
+                issuer: this.config.issuer,
+                audience: this.config.audience,
+            });
+            jwtPayload = payload;
+        } catch (e) {
+            throw new JwtAuthenticationException("Invalid JWT payload", 401, ErrorCode.auth.E_TOKEN_INVALID);
+        }
 
-        const { data, exp }: JWTCustomPayload = payload;
+        const { data, exp }: JWTCustomPayload = jwtPayload;
 
         if (!data) {
-            throw new JwtAuthenticationException("Invalid JWT payload");
+            throw new JwtAuthenticationException("Invalid JWT payload, missing attribute: data", 401, ErrorCode.auth.E_TOKEN_INVALID);
         }
         if (!data.userId) {
-            throw new JwtAuthenticationException("Invalid JWT payload: missing userId");
+            throw new JwtAuthenticationException(
+                "Invalid JWT payload: missing attribute: data.userId",
+                401,
+                ErrorCode.auth.E_TOKEN_INVALID
+            );
         }
         if (exp && exp < Math.floor(DateTime.now().toSeconds())) {
-            throw new JwtAuthenticationException("Expired JWT token");
+            throw new JwtAuthenticationException("Expired JWT token", 401, ErrorCode.auth.E_TOKEN_EXPIRED);
         }
 
-        return payload;
+        return jwtPayload;
     }
 
     /**
@@ -525,7 +544,7 @@ export class JWTGuard extends BaseGuard<"jwt"> implements JWTGuardContract<any, 
         const providerToken = await this.tokenProvider.read("", this.generateHash(value), this.tokenType);
 
         if (!providerToken) {
-            throw new JwtAuthenticationException("Invalid JWT token");
+            throw new JwtAuthenticationException("Invalid JWT token", 401, ErrorCode.auth.E_TOKEN_INVALID);
         }
 
         return providerToken as JwtProviderTokenContract;
@@ -538,7 +557,7 @@ export class JWTGuard extends BaseGuard<"jwt"> implements JWTGuardContract<any, 
         const authenticatable = await this.provider.findById(payloadData.userId);
 
         if (!authenticatable.user) {
-            throw new JwtAuthenticationException("No user found from payload");
+            throw new JwtAuthenticationException("No user found from payload", 401, ErrorCode.auth.E_USER_NOT_FOUND);
         }
 
         return authenticatable;
