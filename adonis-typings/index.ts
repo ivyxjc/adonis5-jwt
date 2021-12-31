@@ -55,6 +55,8 @@ declare module "@ioc:Adonis/Addons/Jwt" {
          */
         audience?: string;
 
+        signAlg: string;
+
         /**
          * Public key to sign the token
          */

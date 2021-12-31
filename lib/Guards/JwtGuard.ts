@@ -8,7 +8,7 @@ import { BaseGuard } from "@adonisjs/auth/build/src/Guards/Base";
 import { EmitterContract } from "@ioc:Adonis/Core/Event";
 import { HttpContextContract } from "@ioc:Adonis/Core/HttpContext";
 import { string } from "@poppinss/utils/build/helpers";
-import { createHash, createPrivateKey, KeyObject } from "crypto";
+import { createHash, createPrivateKey, createSecretKey, KeyObject } from "crypto";
 import { ProviderToken } from "@adonisjs/auth/build/src/Tokens/ProviderToken";
 import JwtAuthenticationException from "../Exceptions/JwtAuthenticationException";
 import {
@@ -407,7 +407,9 @@ export class JWTGuard extends BaseGuard<"jwt"> implements JWTGuardContract<any, 
             refreshTokenExpiresIn = this.config.refreshTokenDefaultExpire;
         }
 
-        let accessTokenBuilder = new SignJWT({ data: payload }).setProtectedHeader({ alg: "RS256" }).setIssuedAt();
+        let accessTokenBuilder = new SignJWT({ data: payload })
+            .setProtectedHeader({ alg: this.config.signAlg })
+            .setIssuedAt();
 
         if (this.config.issuer) {
             accessTokenBuilder = accessTokenBuilder.setIssuer(this.config.issuer);
@@ -419,7 +421,9 @@ export class JWTGuard extends BaseGuard<"jwt"> implements JWTGuardContract<any, 
             accessTokenBuilder = accessTokenBuilder.setExpirationTime(expiresIn);
         }
 
-        const accessToken = await accessTokenBuilder.sign(this.generateKey(this.config.privateKey));
+        const accessToken = await accessTokenBuilder.sign(
+            this.generateKey(this.config.signAlg, this.config.privateKey)
+        );
         const accessTokenHash = this.generateHash(accessToken);
 
         const refreshToken = uuidv4();
@@ -438,8 +442,19 @@ export class JWTGuard extends BaseGuard<"jwt"> implements JWTGuardContract<any, 
     /**
      * Converts key string to Buffer
      */
-    private generateKey(hash: string): KeyObject {
-        return createPrivateKey(Buffer.from(hash));
+    private generateKey(algorithm: string, hash: string): KeyObject {
+        switch (algorithm) {
+            case "HS256":
+            case "HS384":
+            case "HS512":
+                return createSecretKey(Buffer.from(hash));
+            case "RS256":
+            case "RS384":
+            case "RS512":
+                return createPrivateKey(Buffer.from(hash));
+            default:
+                throw new Error("Unsupported algorithm");
+        }
     }
 
     /**
@@ -505,7 +520,7 @@ export class JWTGuard extends BaseGuard<"jwt"> implements JWTGuardContract<any, 
      * Verify the token received in the request.
      */
     private async verifyToken(token: string): Promise<JWTCustomPayload> {
-        const secret = this.generateKey(this.config.privateKey);
+        const secret = this.generateKey(this.config.signAlg, this.config.privateKey);
 
         let jwtPayload;
         try {
@@ -521,7 +536,11 @@ export class JWTGuard extends BaseGuard<"jwt"> implements JWTGuardContract<any, 
         const { data, exp }: JWTCustomPayload = jwtPayload;
 
         if (!data) {
-            throw new JwtAuthenticationException("Invalid JWT payload, missing attribute: data", 401, ErrorCode.auth.E_TOKEN_INVALID);
+            throw new JwtAuthenticationException(
+                "Invalid JWT payload, missing attribute: data",
+                401,
+                ErrorCode.auth.E_TOKEN_INVALID
+            );
         }
         if (!data.userId) {
             throw new JwtAuthenticationException(
