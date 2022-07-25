@@ -1,4 +1,5 @@
 declare module "@ioc:Adonis/Addons/Jwt" {
+    import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext';
     import {
         DatabaseTokenProviderConfig,
         RedisTokenProviderConfig,
@@ -54,6 +55,8 @@ declare module "@ioc:Adonis/Addons/Jwt" {
          */
         audience?: string;
 
+        signAlg: string;
+
         /**
          * Public key to sign the token
          */
@@ -89,6 +92,11 @@ declare module "@ioc:Adonis/Addons/Jwt" {
          * User provider
          */
         provider: ProvidersList[Provider]["config"];
+
+        /**
+         * Default JWT uses the ctx.request.header("Authorization")
+         */
+        getBearerToken?: (ctx: HttpContextContract) => string
     };
 
     /**
