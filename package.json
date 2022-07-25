@@ -1,6 +1,6 @@
 {
-  "name": "adonis5-jwt",
-  "version": "1.1.6",
+  "name": "@ivyxjc/adonis5-jwt",
+  "version": "0.0.10",
   "description": "",
   "types": "build/adonis-typings/index.d.ts",
   "main": "build/providers/JwtProvider.js",
@@ -25,11 +25,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/maxgalbu/adonis5-jwt.git"
+    "url": "git+https://github.com/ivyxjc/adonis5-jwt.git"
   },
-  "homepage": "https://github.com/maxgalbu/adonis5-jwt#readme",
+  "homepage": "https://github.com/ivyxjc/adonis5-jwt#readme",
   "bugs": {
-    "url": "https://github.com/maxgalbu/adonis5-jwt/issues"
+    "url": "https://github.com/ivyxjc/adonis5-jwt/issues"
   },
   "keywords": [
     "adonis",
